@@ -1,0 +1,28 @@
+name: 'Django/ReactJS deploy'
+description: 'Deploy a Django + ReactJS application via self-hosted runner'
+inputs:
+  path:
+    description: 'The path where to deploy the application'
+    required: true
+    default: '/var/www'
+runs:
+  using: "composite"
+  steps:
+  - name: Checkout
+    uses: actions/checkout@v3
+  - name: Deploy to production
+    run: rsync -avz -O --progress --exclude-from=.rsyncignore . ${{ inputs.path }}
+  - name: Install python dependecies
+    run: |
+      cd ${{ inputs.path }}
+      virtualenv venv
+      source venv/bin/activate
+      pip install -r requirements.txt
+  - name:  Install front dependencies
+    run: cd ${{ inputs.path }} && yarn install --frozen-lockfile --immutable --immutable-cache --check-cache
+  - name: Build front
+    run: cd ${{ inputs.path }} && yarn build
+  - name: Collect static files
+    run: cd ${{ inputs.path }} && python3 manage.py collectstatic --noinput
+  - name: Restarting services
+    run: sudo systemctl restart apache2.service
